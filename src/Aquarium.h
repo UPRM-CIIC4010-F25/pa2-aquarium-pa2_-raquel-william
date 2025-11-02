@@ -67,12 +67,14 @@ public:
     void loseLife(int debounce);
     void increasePower(int value) { m_power += value; }
     void reduceDamageDebounce();
+    void setPermanentSize(float scaleUp); // set the powerup buffs (size incr)
     
 private:
     int m_score = 0;
     int m_lives = 3;
     int m_power = 1; // mark current power lvl
     int m_damage_debounce = 0; // frames to wait after eating
+    float m_visualScale = 1.0f; //default val to change fish size w/o changing png
 };
 
 class NPCreature : public Creature {
@@ -104,7 +106,18 @@ class AquariumSpriteManager {
         std::shared_ptr<GameSprite> m_big_fish;
 };
 
+class PowerUp {
+public:
+    PowerUp(float x, float y, float r, std::shared_ptr<GameSprite> sprite);
+    float getX() const;
+    float getY() const;
+    float getRadius() const;
+    void draw() const;
 
+private:
+    float m_x, m_y, m_radius;
+    std::shared_ptr<GameSprite> m_sprite;
+};
 class Aquarium{
 public:
     Aquarium(int width, int height, std::shared_ptr<AquariumSpriteManager> spriteManager);
@@ -118,11 +131,15 @@ public:
     void setMaxPopulation(int n) { m_maxPopulation = n; }
     void Repopulate();
     void SpawnCreature(AquariumCreatureType type);
+    void addPowerUp(std::shared_ptr<PowerUp> pu);
+    void removePowerUp(const std::shared_ptr<PowerUp>& pu);
     
     std::shared_ptr<Creature> getCreatureAt(int index);
+    std::shared_ptr<PowerUp> getPowerUpAt(int i);
     int getCreatureCount() const { return m_creatures.size(); }
     int getWidth() const { return m_width; }
     int getHeight() const { return m_height; }
+    int getPowerUpCount() const;
 
 
 private:
@@ -134,6 +151,7 @@ private:
     std::vector<std::shared_ptr<Creature>> m_next_creatures;
     std::vector<std::shared_ptr<AquariumLevel>> m_aquariumlevels;
     std::shared_ptr<AquariumSpriteManager> m_sprite_manager;
+    std::vector<std::shared_ptr<PowerUp>> m_powerups;
 };
 
 
@@ -158,6 +176,11 @@ class AquariumGameScene : public GameScene {
         std::shared_ptr<GameEvent> m_lastEvent;
         string m_name;
         AwaitFrames updateControl{5};
+
+        //for PowerUp
+        bool seenBigFish = false;
+        int  framesSinceBigFishSeen = 0;
+        bool spawnedSizePU = false;
 };
 
 

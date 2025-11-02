@@ -13,6 +13,18 @@ string AquariumCreatureTypeToString(AquariumCreatureType t){
     }
 }
 
+//Power Up Implementation
+PowerUp::PowerUp(float x, float y, float r, std::shared_ptr<GameSprite> sprite)
+    : m_x(x), m_y(y), m_radius(r), m_sprite(std::move(sprite)) {}
+
+float PowerUp::getX() const { return m_x; }
+float PowerUp::getY() const { return m_y; }
+float PowerUp::getRadius() const { return m_radius; }
+
+void PowerUp::draw() const {
+    if (m_sprite) m_sprite->draw(m_x, m_y); //draws starting from top-left
+};
+
 // PlayerCreature Implementation
 PlayerCreature::PlayerCreature(float x, float y, int speed, std::shared_ptr<GameSprite> sprite)
 : Creature(x, y, speed, 10.0f, 1, sprite) {}
@@ -48,8 +60,12 @@ void PlayerCreature::draw() const {
     if (this->m_damage_debounce > 0) {
         ofSetColor(ofColor::red); // Flash red if in damage debounce
     }
-    if (m_sprite) {
-        m_sprite->draw(m_x, m_y);
+    if (m_sprite) { //incr size after pu
+       ofPushMatrix();
+        ofTranslate(m_x, m_y);
+        ofScale(m_visualScale, m_visualScale); 
+        m_sprite->draw(0, 0);
+        ofPopMatrix();
     }
     ofSetColor(ofColor::white); // Reset color
 
@@ -69,6 +85,13 @@ void PlayerCreature::loseLife(int debounce) {
     if (m_damage_debounce > 0) {
         ofLogVerbose() << "Player is in damage debounce period. Frames left: " << m_damage_debounce << std::endl;
     }
+}
+
+//growth func
+void PlayerCreature::setPermanentSize(float scaleUp) {
+    m_visualScale = scaleUp;
+
+    setCollisionRadius(getCollisionRadius() * scaleUp);
 }
 
 // NPCreature Implementation
@@ -180,6 +203,9 @@ void Aquarium::draw() const {
     for (const auto& creature : m_creatures) {
         creature->draw();
     }
+    for (const auto& pu : m_powerups) {
+    if (pu) pu->draw(); //power Ups drawn AFTER CREATURE!!!!!
+}
 }
 
 
@@ -270,6 +296,25 @@ std::shared_ptr<GameEvent> DetectAquariumCollisions(std::shared_ptr<Aquarium> aq
         }
     }
     return nullptr;
+}
+
+// power up methods inside aquarium
+void Aquarium::addPowerUp(std::shared_ptr<PowerUp> pu) {
+    m_powerups.push_back(std::move(pu));
+}
+
+int Aquarium::getPowerUpCount() const {
+    return (int)m_powerups.size();
+}
+
+std::shared_ptr<PowerUp> Aquarium::getPowerUpAt(int i) {
+    if (i < 0 || (size_t)i >= m_powerups.size()) return nullptr;
+    return m_powerups[i];
+}
+
+void Aquarium::removePowerUp(const std::shared_ptr<PowerUp>& pu) {
+    auto it = std::find(m_powerups.begin(), m_powerups.end(), pu);
+    if (it != m_powerups.end()) m_powerups.erase(it);
 };
 
 //  Imlementation of the AquariumScene
@@ -279,6 +324,39 @@ void AquariumGameScene::Update(){
 
     this->m_player->update();
 
+    //detect if big fish was seen indicating level 2 start 
+    if (!seenBigFish) {
+
+    for (int i = 0; i < m_aquarium->getCreatureCount(); ++i) {
+        auto c = m_aquarium->getCreatureAt(i);
+        if (!c) continue;
+        
+        auto npc = std::dynamic_pointer_cast<NPCreature>(c);
+        if (npc && npc->GetType() == AquariumCreatureType::BiggerFish) {
+            seenBigFish = true;            
+            framesSinceBigFishSeen = 0;    
+            break;
+        }
+    }
+    }
+    // if big fish was seen then lvl then start timer for pu spawn
+    if (seenBigFish && !spawnedSizePU) {
+    framesSinceBigFishSeen++;
+    if (framesSinceBigFishSeen > 10 * 60) { 
+        auto spritePU = std::make_shared<GameSprite>("PowerUp.png", 32, 32);
+
+        float px = m_player->getX(), py = m_player->getY();
+        const float margin = 20.0f;
+        float x = std::clamp(px + 150.0f, margin, float(m_aquarium->getWidth()  - margin));
+        float y = std::clamp(py + 100.0f, margin, float(m_aquarium->getHeight() - margin));
+
+        m_aquarium->addPowerUp(std::make_shared<PowerUp>(x, y, 16.0f, spritePU));
+        spawnedSizePU = true;
+        ofLogNotice() << "[PU] spawned ~10s into Level 2";
+    }
+    }
+
+    //aquarium collisions
     if (this->updateControl.tick()) {
         event = DetectAquariumCollisions(this->m_aquarium, this->m_player);
         if (event != nullptr && event->isCollisionEvent()) {
@@ -309,6 +387,32 @@ void AquariumGameScene::Update(){
                 ofLogError() << "Error: creatureB is null in collision event." << std::endl;
             }
         }
+
+        // if collision with powerup is true then increase size and hitbox
+        for (int i = 0; i < this->m_aquarium->getPowerUpCount(); i++) {
+            auto pu = this->m_aquarium->getPowerUpAt(i);
+            if (!pu) continue;
+
+            float px = this->m_player->getX() + this->m_player->getCollisionRadius();
+            float py = this->m_player->getY() + this->m_player->getCollisionRadius();
+            float qx = pu->getX() + pu->getRadius();
+            float qy = pu->getY() + pu->getRadius();
+
+            float dx = px - qx;
+            float dy = py - qy;
+            float rr = this->m_player->getCollisionRadius() + pu->getRadius();
+
+            if (dx*dx + dy*dy <= rr*rr) {
+                m_player->setPermanentSize(1.5f); 
+
+                ofLogNotice() << "PowerUp collected! New collision radius -> "
+                             << m_player->getCollisionRadius();
+
+                m_aquarium->removePowerUp(pu);
+                break;
+            }
+        }
+
         this->m_aquarium->update();
     }
 
