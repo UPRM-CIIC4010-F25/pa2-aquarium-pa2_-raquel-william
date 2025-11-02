@@ -1,5 +1,6 @@
 #include "ofApp.h"
 
+
 //--------------------------------------------------------------
 void ofApp::setup(){
 
@@ -7,6 +8,10 @@ void ofApp::setup(){
     ofSetBackgroundColor(ofColor::blue);
     backgroundImage.load("background.png");
     backgroundImage.resize(ofGetWindowWidth(), ofGetWindowHeight());
+    backgroundMusic.load("background.mp3"); // file in bin/data/
+    backgroundMusic.setLoop(true);
+    backgroundMusic.setVolume(0.6f); // 0.0 - 1.0
+    backgroundMusic.play();
 
 
     std::shared_ptr<Aquarium> myAquarium;
@@ -59,6 +64,9 @@ void ofApp::setup(){
 //--------------------------------------------------------------
 void ofApp::update(){
     
+    ofSoundUpdate(); // Update sound system each frame
+
+
     if(gameManager->GetActiveSceneName() == GameSceneKindToString(GameSceneKind::GAME_OVER)){
         return; // Stop updating if game is over or exiting
     }
@@ -86,6 +94,8 @@ void ofApp::draw(){
 
 //--------------------------------------------------------------
 void ofApp::exit(){
+    backgroundMusic.stop();
+    backgroundMusic.unload();
     
 }
 
