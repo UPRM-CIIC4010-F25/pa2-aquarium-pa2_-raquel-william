@@ -9,7 +9,8 @@
 
 enum class AquariumCreatureType {
     NPCreature,
-    BiggerFish
+    BiggerFish,
+    PinkFish
 };
 
 string AquariumCreatureTypeToString(AquariumCreatureType t);
@@ -95,6 +96,16 @@ public:
     void draw() const override;
 };
 
+class PinkFish : public NPCreature {
+public:
+    PinkFish(float x, float y, int speed, std::shared_ptr<GameSprite> sprite);
+    void move() override;
+    void draw() const override;
+
+    private:
+    float t = 0.0f;
+};
+
 
 class AquariumSpriteManager {
     public:
@@ -104,6 +115,7 @@ class AquariumSpriteManager {
     private:
         std::shared_ptr<GameSprite> m_npc_fish;
         std::shared_ptr<GameSprite> m_big_fish;
+        std::shared_ptr<GameSprite> m_pink_fish;
 };
 
 class PowerUp {
@@ -197,6 +209,7 @@ class Level_1 : public AquariumLevel  {
     public:
         Level_1(int levelNumber, int targetScore): AquariumLevel(levelNumber, targetScore){
             this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::NPCreature, 20));
+            this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::PinkFish, 10));
 
         };
         std::vector<AquariumCreatureType> Repopulate() override;
@@ -208,7 +221,7 @@ class Level_2 : public AquariumLevel  {
         Level_2(int levelNumber, int targetScore): AquariumLevel(levelNumber, targetScore){
             this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::NPCreature, 30));
             this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::BiggerFish, 5));
-
+            this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::PinkFish, 10));
         };
         std::vector<AquariumCreatureType> Repopulate() override;
 
