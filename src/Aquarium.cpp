@@ -10,6 +10,8 @@ string AquariumCreatureTypeToString(AquariumCreatureType t){
             return "BaseFish";
         case AquariumCreatureType::PinkFish:
             return "PinkFish";
+        case AquariumCreatureType::SharkFish:
+            return "SharkFish";
         default:
             return "UknownFish";
     }
@@ -186,11 +188,61 @@ void PinkFish::draw() const{
     if (m_sprite) m_sprite->draw(m_x, m_y);
 }
 
+SharkFish::SharkFish(float x, float y, int speed, std::shared_ptr<GameSprite> sprite)
+: NPCreature(x, y, speed, sprite) {
+
+    m_dx = (rand() % 2 == 0) ? 1 : -1;
+    m_dy = 0;
+    normalize();
+
+    setCollisionRadius(45);               
+    m_value = 10;                         
+    m_creatureType = AquariumCreatureType::SharkFish;
+
+    dashFrames = 0;
+    cooldownFrames = 60 + rand() % 120;   
+}
+
+void SharkFish::move() {
+    m_sprite->setFlipped(m_dx < 0);
+
+    float speedMul = 1.4f;     
+    if (dashFrames > 0) {
+        speedMul = 2.6f;       
+        dashFrames--;
+    } else {
+        //count down till next dash
+        if (cooldownFrames > 0) cooldownFrames--;
+        else {
+           //rand dash
+            if ((rand() % 100) < 12) {      
+                dashFrames = 18;           
+                cooldownFrames = 90 + rand() % 120; 
+            }
+        }
+        
+        m_dy += (rand() % 3 - 1) * 0.02f;  
+        if (m_dy >  0.6f) m_dy =  0.6f;
+        if (m_dy < -0.6f) m_dy = -0.6f;
+        normalize();
+    }
+
+    m_x += m_dx * (m_speed * speedMul);
+    m_y += m_dy * (m_speed * speedMul);
+
+    bounce(); 
+}
+
+void SharkFish::draw() const {
+    if (m_sprite) m_sprite->draw(m_x, m_y);
+}
+
 // AquariumSpriteManager
 AquariumSpriteManager::AquariumSpriteManager(){
     this->m_npc_fish = std::make_shared<GameSprite>("base-fish.png", 70,70);
     this->m_big_fish = std::make_shared<GameSprite>("bigger-fish.png", 120, 120);
     this->m_pink_fish = std::make_shared<GameSprite>("pinkFish.png", 80, 80);
+    this->m_shark_fish = std::make_shared<GameSprite>("sharkFish.png", 100, 100);
 }
 
 std::shared_ptr<GameSprite> AquariumSpriteManager::GetSprite(AquariumCreatureType t){
@@ -203,6 +255,9 @@ std::shared_ptr<GameSprite> AquariumSpriteManager::GetSprite(AquariumCreatureTyp
 
         case AquariumCreatureType::PinkFish:
             return std::make_shared<GameSprite>(*this->m_pink_fish);
+
+        case AquariumCreatureType::SharkFish:
+            return std::make_shared<GameSprite>(*this->m_shark_fish);
 
         default:
             return nullptr;
@@ -283,6 +338,9 @@ void Aquarium::SpawnCreature(AquariumCreatureType type) {
             break;
         case AquariumCreatureType::PinkFish:
             this->addCreature(std::make_shared<PinkFish>(x, y, speed, this->m_sprite_manager->GetSprite(AquariumCreatureType::PinkFish)));
+            break;
+        case AquariumCreatureType::SharkFish:
+            this->addCreature(std::make_shared<SharkFish>(x, y, speed, this->m_sprite_manager->GetSprite(AquariumCreatureType::SharkFish)));
             break;
         default:
             ofLogError() << "Unknown creature type to spawn!";
@@ -391,11 +449,10 @@ void AquariumGameScene::Update(){
 
         m_aquarium->addPowerUp(std::make_shared<PowerUp>(x, y, 16.0f, spritePU));
         spawnedSizePU = true;
-        ofLogNotice() << "[PU] spawned ~10s into Level 2";
+        ofLogNotice() << "Power UP spawned 10s into Level 2";
     }
     }
 
-    //aquarium collisions
     if (this->updateControl.tick()) {
         event = DetectAquariumCollisions(this->m_aquarium, this->m_player);
         if (event != nullptr && event->isCollisionEvent()) {

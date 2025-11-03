@@ -10,7 +10,8 @@
 enum class AquariumCreatureType {
     NPCreature,
     BiggerFish,
-    PinkFish
+    PinkFish,
+    SharkFish
 };
 
 string AquariumCreatureTypeToString(AquariumCreatureType t);
@@ -106,6 +107,16 @@ public:
     float t = 0.0f;
 };
 
+class SharkFish : public NPCreature {
+public:
+    SharkFish(float x, float y, int speed, std::shared_ptr<GameSprite> sprite);
+    void move() override;
+    void draw() const override;
+
+    private:
+    int dashFrames = 0;       
+    int cooldownFrames = 0;
+};
 
 class AquariumSpriteManager {
     public:
@@ -116,6 +127,7 @@ class AquariumSpriteManager {
         std::shared_ptr<GameSprite> m_npc_fish;
         std::shared_ptr<GameSprite> m_big_fish;
         std::shared_ptr<GameSprite> m_pink_fish;
+        std::shared_ptr<GameSprite> m_shark_fish;
 };
 
 class PowerUp {
@@ -222,7 +234,9 @@ class Level_2 : public AquariumLevel  {
             this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::NPCreature, 30));
             this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::BiggerFish, 5));
             this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::PinkFish, 10));
+            this->m_levelPopulation.push_back(std::make_shared<AquariumLevelPopulationNode>(AquariumCreatureType::SharkFish, 1));
         };
         std::vector<AquariumCreatureType> Repopulate() override;
 
 };
+
