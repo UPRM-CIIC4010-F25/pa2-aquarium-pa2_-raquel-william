@@ -24,8 +24,8 @@ Grading
 ## Team Info
 | Student Number | Student Name | Student Email |
 |-|-|-|
-|(STUDENT NUMBER HERE)| (STUDENT NAME HERE)| (STUDENT EMAIL HERE) |
-|(STUDENT NUMBER HERE)| (STUDENT NAME HERE)| (STUDENT EMAIL HERE) |
+|(802-22-5552)| (Raquel I. Rivera Dompenciel)| (raquel.rivera19@upr.edu) |
+|(802-24-3408)| (William Javier Bracero)| (william.javier@upr.edu) |
 
 ---
 
