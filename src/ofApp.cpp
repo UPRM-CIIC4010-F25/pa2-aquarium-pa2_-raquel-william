@@ -43,6 +43,7 @@ void ofApp::setup(){
     myAquarium->addAquariumLevel(std::make_shared<Level_3>(3, 25));
     myAquarium->addAquariumLevel(std::make_shared<Level_4>(4, 30));
     myAquarium->Repopulate(); // initial population
+    ofLogNotice() << myAquarium->getCreatureCount();
 
     // now that we are mostly set, lets pass the player and the aquarium downstream
     gameManager->AddScene(std::make_shared<AquariumGameScene>(
@@ -60,7 +61,7 @@ void ofApp::setup(){
         std::make_shared<GameSprite>("game-over.png", ofGetWindowWidth(), ofGetWindowHeight())
     ));
 
-    ofSetLogLevel(OF_LOG_NOTICE); // Set default log level
+    ofSetLogLevel(OF_LOG_VERBOSE); // Set default log level
 }
 
 //--------------------------------------------------------------

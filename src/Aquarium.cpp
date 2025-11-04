@@ -26,7 +26,7 @@ float PowerUp::getY() const { return m_y; }
 float PowerUp::getRadius() const { return m_radius; }
 
 void PowerUp::draw() const {
-    if (m_sprite) m_sprite->draw(m_x, m_y); //draws starting from top-left
+    if (m_sprite) m_sprite->draw(m_x, m_y); //draws starting from top-left (no flip needed)
 };
 
 // PlayerCreature Implementation
@@ -68,7 +68,7 @@ void PlayerCreature::draw() const {
        ofPushMatrix();
         ofTranslate(m_x, m_y);
         ofScale(m_visualScale, m_visualScale); 
-        m_sprite->draw(0, 0);
+        m_sprite->draw(0, 0, m_flipped);
         ofPopMatrix();
     }
     ofSetColor(ofColor::white); // Reset color
@@ -112,11 +112,8 @@ void NPCreature::move() {
     // Simple AI movement logic (random direction)
     m_x += m_dx * m_speed;
     m_y += m_dy * m_speed;
-    if(m_dx < 0 ){
-        this->m_sprite->setFlipped(true);
-    }else {
-        this->m_sprite->setFlipped(false);
-    }
+    // set per-creature flipped flag instead of mutating shared sprite
+    this->setFlipped(m_dx < 0);
     bounce();
 }
 
@@ -124,7 +121,7 @@ void NPCreature::draw() const {
     ofLogVerbose() << "NPCreature at (" << m_x << ", " << m_y << ") with speed " << m_speed << std::endl;
     ofSetColor(ofColor::white);
     if (m_sprite) {
-        m_sprite->draw(m_x, m_y);
+        m_sprite->draw(m_x, m_y, m_flipped);
     }
 }
 
@@ -144,18 +141,13 @@ void BiggerFish::move() {
     // Bigger fish might move slower or have different logic
     m_x += m_dx * (m_speed * 0.5); // Moves at half speed
     m_y += m_dy * (m_speed * 0.5);
-    if(m_dx < 0 ){
-        this->m_sprite->setFlipped(true);
-    }else {
-        this->m_sprite->setFlipped(false);
-    }
+    this->setFlipped(m_dx < 0);
 
     bounce();
 }
 
-void BiggerFish::draw() const {
-    ofLogVerbose() << "BiggerFish at (" << m_x << ", " << m_y << ") with speed " << m_speed << std::endl;
-    this->m_sprite->draw(this->m_x, this->m_y);
+void BiggerFish::draw() const{
+    this->m_sprite->draw(this->m_x, this->m_y, m_flipped);
 }
 
 PinkFish::PinkFish(float x, float y, int speed, std::shared_ptr<GameSprite> sprite)
@@ -170,22 +162,37 @@ PinkFish::PinkFish(float x, float y, int speed, std::shared_ptr<GameSprite> spri
 }  
 
 void PinkFish::move(){
+    // Use a precalculated sine table to avoid expensive sin calculations
+    static const int TABLE_SIZE = 256;
+    static float sineTable[TABLE_SIZE];
+    static bool tableInitialized = false;
+    
+    // Initialize sine table once
+    if (!tableInitialized) {
+        for (int i = 0; i < TABLE_SIZE; i++) {
+            sineTable[i] = sinf((float)i * glm::two_pi<float>() / TABLE_SIZE);
+        }
+        tableInitialized = true;
+    }
+    
+    // Increment and wrap time
     t += 0.05f;
-    float amplitude = 2.0f;
-    float sinY = sinf(t) * amplitude;
-
+    if (t >= glm::two_pi<float>()) t -= glm::two_pi<float>();
+    
+    // Look up sine value
+    int index = (int)(t * TABLE_SIZE / glm::two_pi<float>()) % TABLE_SIZE;
+    float sinY = sineTable[index] * 2.0f; // amplitude = 2.0f
+    
     m_x += m_dx * m_speed;
     m_y += (m_dy + sinY) * 0.5f * m_speed;
-
-    if (m_dx < 0) this->m_sprite->setFlipped(true);
-    else          this->m_sprite->setFlipped(false);
-
+    
+    this->setFlipped(m_dx < 0);
+    
     bounce();
 }
 
 void PinkFish::draw() const{
-    ofLogVerbose() << "PinkFish at (" << m_x << ", " << m_y << ") speed: " << m_speed << std::endl;
-    if (m_sprite) m_sprite->draw(m_x, m_y);
+    if (m_sprite) m_sprite->draw(m_x, m_y, m_flipped);
 }
 
 SharkFish::SharkFish(float x, float y, int speed, std::shared_ptr<GameSprite> sprite)
@@ -204,7 +211,7 @@ SharkFish::SharkFish(float x, float y, int speed, std::shared_ptr<GameSprite> sp
 }
 
 void SharkFish::move() {
-    m_sprite->setFlipped(m_dx < 0);
+    this->setFlipped(m_dx < 0);
 
     float speedMul = 1.4f;     
     if (dashFrames > 0) {
@@ -234,7 +241,7 @@ void SharkFish::move() {
 }
 
 void SharkFish::draw() const {
-    if (m_sprite) m_sprite->draw(m_x, m_y);
+    if (m_sprite) m_sprite->draw(m_x, m_y, m_flipped);
 }
 
 // AquariumSpriteManager
@@ -248,16 +255,16 @@ AquariumSpriteManager::AquariumSpriteManager(){
 std::shared_ptr<GameSprite> AquariumSpriteManager::GetSprite(AquariumCreatureType t){
     switch(t){
         case AquariumCreatureType::BiggerFish:
-            return std::make_shared<GameSprite>(*this->m_big_fish);
+            return this->m_big_fish;
             
         case AquariumCreatureType::NPCreature:
-            return std::make_shared<GameSprite>(*this->m_npc_fish);
+            return this->m_npc_fish;
 
         case AquariumCreatureType::PinkFish:
-            return std::make_shared<GameSprite>(*this->m_pink_fish);
+            return this->m_pink_fish;
 
         case AquariumCreatureType::SharkFish:
-            return std::make_shared<GameSprite>(*this->m_shark_fish);
+            return this->m_shark_fish;
 
         default:
             return nullptr;
@@ -362,17 +369,23 @@ void Aquarium::Repopulate() {
     std::shared_ptr<AquariumLevel> level = this->m_aquariumlevels.at(selectedLevelIdx);
 
 
-    if(level->isCompleted()){
+    if (level->isCompleted()){
         level->levelReset();
         this->currentLevel += 1;
+        
         selectedLevelIdx = this->currentLevel % this->m_aquariumlevels.size();
-        ofLogNotice()<<"new level reached : " << selectedLevelIdx << std::endl;
+        ofLogNotice() << "Level Up! Now entering level " << this->currentLevel;
+        this->m_creatures.clear(); 
         level = this->m_aquariumlevels.at(selectedLevelIdx);
-        this->clearCreatures();
     }
 
-    
-    // now lets find how many to respawn if needed 
+    if(!level){
+        ofLogError() << "Error: Level is null during repopulation!" << endl;
+        return;
+    }
+
+    ofLogVerbose() << "Calling level ->Repopulate()" << endl;
+    // now lets find how many to respawn if needed (call once)
     std::vector<AquariumCreatureType> toRespawn = level->Repopulate();
     ofLogVerbose() << "amount to repopulate : " << toRespawn.size() << endl;
     if(toRespawn.size() <= 0 ){return;} // there is nothing for me to do here
@@ -382,15 +395,41 @@ void Aquarium::Repopulate() {
 }
 
 
-// Aquarium collision detection
+// Aquarium collision detection with spatial optimization
 std::shared_ptr<GameEvent> DetectAquariumCollisions(std::shared_ptr<Aquarium> aquarium, std::shared_ptr<PlayerCreature> player) {
     if (!aquarium || !player) return nullptr;
     
+    // Player position and radius
+    float px = player->getX();
+    float py = player->getY();
+    float pr = player->getCollisionRadius();
+    float maxCheckDistance = pr * 4; // Only check creatures within this range
+    
+    // Find the nearest collision by checking creatures within range
+    std::shared_ptr<Creature> nearestCollision = nullptr;
+    float nearestDistSq = maxCheckDistance * maxCheckDistance;
+    
     for (int i = 0; i < aquarium->getCreatureCount(); ++i) {
         std::shared_ptr<Creature> npc = aquarium->getCreatureAt(i);
-        if (npc && checkCollision(player, npc)) {
-            return std::make_shared<GameEvent>(GameEventType::COLLISION, player, npc);
+        if (!npc) continue;
+        
+        // Quick distance check before detailed collision
+        float dx = npc->getX() - px;
+        float dy = npc->getY() - py;
+        float distSq = dx * dx + dy * dy;
+        
+        // Skip if too far away
+        if (distSq > nearestDistSq) continue;
+        
+        // Only do precise collision check if potentially closer than previous collision
+        if (checkCollision(player, npc)) {
+            nearestCollision = npc;
+            nearestDistSq = distSq;
         }
+    }
+    
+    if (nearestCollision) {
+        return std::make_shared<GameEvent>(GameEventType::COLLISION, player, nearestCollision);
     }
     return nullptr;
 }
@@ -418,23 +457,23 @@ void Aquarium::removePowerUp(const std::shared_ptr<PowerUp>& pu) {
 
 void AquariumGameScene::Update(){
     std::shared_ptr<GameEvent> event;
-
+    static AwaitFrames bigFishCheck{10}; // Only check every 10 frames
+    
     this->m_player->update();
 
     //detect if big fish was seen indicating level 2 start 
-    if (!seenBigFish) {
-
-    for (int i = 0; i < m_aquarium->getCreatureCount(); ++i) {
-        auto c = m_aquarium->getCreatureAt(i);
-        if (!c) continue;
-        
-        auto npc = std::dynamic_pointer_cast<NPCreature>(c);
-        if (npc && npc->GetType() == AquariumCreatureType::BiggerFish) {
-            seenBigFish = true;            
-            framesSinceBigFishSeen = 0;    
-            break;
+    if (!seenBigFish && bigFishCheck.tick()) {
+        for (int i = 0; i < m_aquarium->getCreatureCount(); ++i) {
+            auto c = m_aquarium->getCreatureAt(i);
+            if (!c) continue;
+            
+            auto npc = std::dynamic_pointer_cast<NPCreature>(c);
+            if (npc && npc->GetType() == AquariumCreatureType::BiggerFish) {
+                seenBigFish = true;            
+                framesSinceBigFishSeen = 0;    
+                break;
+            }
         }
-    }
     }
     // if big fish was seen then lvl then start timer for pu spawn
     if (seenBigFish && !spawnedSizePU) {

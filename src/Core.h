@@ -29,24 +29,26 @@ public:
             std::cerr << "Failed to load image: " << imagePath << std::endl;
         }
         m_image.resize(width, height);
-        m_flippedImage = m_image;
-        m_flippedImage.mirror(false, true); // Mirror horizontally
     }
 
-    void draw(float x, float y) const {
-        if (m_flipped) {
-            m_flippedImage.draw(x, y);
-        } else {
+    // draw supports a flipped parameter so the same GameSprite instance
+    // can be shared across creatures without storing mutable state.
+    void draw(float x, float y, bool flipped = false) const {
+        if (!m_image.isAllocated()) return;
+        if (!flipped) {
             m_image.draw(x, y);
+        } else {
+            // draw mirrored horizontally without creating a flipped copy
+            ofPushMatrix();
+            ofTranslate(x + m_image.getWidth(), y);
+            ofScale(-1, 1);
+            m_image.draw(0, 0);
+            ofPopMatrix();
         }
     }
 
-    void setFlipped(bool flipped) { m_flipped = flipped; }
-
 private:
     ofImage m_image;
-    ofImage m_flippedImage;
-    bool m_flipped = false;
 };
 
 
@@ -76,6 +78,7 @@ protected:
     float m_collisionRadius = 0.0f;
     int m_value = 0;
     std::shared_ptr<GameSprite> m_sprite;
+    bool m_flipped = false;
 
 public:
     virtual ~Creature() = default;
@@ -89,11 +92,7 @@ public:
     float getY() const { return m_y; }
     int getSpeed() const { return m_speed; }
     void setSpeed(int speed) { m_speed = speed; }
-    void setFlipped(bool flipped) {
-        if (m_sprite) {
-            m_sprite->setFlipped(flipped);
-        }
-    }
+    void setFlipped(bool flipped) { m_flipped = flipped; }
     void setSprite(std::shared_ptr<GameSprite> sprite) { m_sprite = std::move(sprite); }
     int getValue() const { return m_value; }
 
