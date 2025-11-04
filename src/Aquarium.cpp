@@ -59,8 +59,6 @@ void PlayerCreature::update() {
 
 
 void PlayerCreature::draw() const {
-    
-    ofLogVerbose() << "PlayerCreature at (" << m_x << ", " << m_y << ") with speed " << m_speed << std::endl;
     if (this->m_damage_debounce > 0) {
         ofSetColor(ofColor::red); // Flash red if in damage debounce
     }
@@ -118,7 +116,6 @@ void NPCreature::move() {
 }
 
 void NPCreature::draw() const {
-    ofLogVerbose() << "NPCreature at (" << m_x << ", " << m_y << ") with speed " << m_speed << std::endl;
     ofSetColor(ofColor::white);
     if (m_sprite) {
         m_sprite->draw(m_x, m_y, m_flipped);
@@ -563,9 +560,13 @@ void AquariumGameScene::Draw() {
 
 void AquariumGameScene::paintAquariumHUD(){
     float panelWidth = ofGetWindowWidth() - 150;
+    // Draw basic HUD
     ofDrawBitmapString("Score: " + std::to_string(this->m_player->getScore()), panelWidth, 20);
     ofDrawBitmapString("Power: " + std::to_string(this->m_player->getPower()), panelWidth, 30);
     ofDrawBitmapString("Lives: " + std::to_string(this->m_player->getLives()), panelWidth, 40);
+    // Lightweight FPS counter for runtime profiling
+    int fps = (int)ofGetFrameRate();
+    ofDrawBitmapString("FPS: " + std::to_string(fps), 10, 20);
     for (int i = 0; i < this->m_player->getLives(); ++i) {
         ofSetColor(ofColor::red);
         ofDrawCircle(panelWidth + i * 20, 50, 5);
@@ -581,14 +582,11 @@ void AquariumLevel::populationReset(){
 
 void AquariumLevel::ConsumePopulation(AquariumCreatureType creatureType, int power){
     for(std::shared_ptr<AquariumLevelPopulationNode> node: this->m_levelPopulation){
-        ofLogVerbose() << "consuming from this level creatures" << endl;
         if(node->creatureType == creatureType){
-            ofLogVerbose() << "-cosuming from type: " << AquariumCreatureTypeToString(node->creatureType) <<" , currPop: " << node->currentPopulation << endl;
             if(node->currentPopulation == 0){
                 return;
-            } 
+            }
             node->currentPopulation -= 1;
-            ofLogVerbose() << "+cosuming from type: " << AquariumCreatureTypeToString(node->creatureType) <<" , currPop: " << node->currentPopulation << endl;
             this->m_level_score += power;
             return;
         }
@@ -606,7 +604,6 @@ std::vector<AquariumCreatureType> Level_0::Repopulate() {
     std::vector<AquariumCreatureType> toRepopulate;
     for(std::shared_ptr<AquariumLevelPopulationNode> node : this->m_levelPopulation){
         int delta = node->population - node->currentPopulation;
-        ofLogVerbose() << "to Repopulate :  " << delta << endl;
         if(delta >0){
             for(int i = 0; i<delta; i++){
                 toRepopulate.push_back(node->creatureType);
